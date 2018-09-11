@@ -20,8 +20,8 @@
  *
  */
 
-import * as db from '../sequelize_common';
-import * as cacheDb from './sequelize';
+import * as db from '../knex_common';
+import * as cacheDb from './knex';
 
 import logger from '../../logger';
 
@@ -634,7 +634,7 @@ export function removeExpectedIdpPublicProofInBlockList(fromHeight, toHeight) {
 export function getDataResponsefromAS(asResponseId) {
   return db.get({
     dbName,
-    name: 'dataResponseFromAS',
+    name: 'dataResponseFromAs',
     keyName: 'asResponseId',
     key: asResponseId,
     valueName: 'dataResponse',
@@ -643,7 +643,7 @@ export function getDataResponsefromAS(asResponseId) {
 export function setDataResponseFromAS(asResponseId, data) {
   return db.set({
     dbName,
-    name: 'dataResponseFromAS',
+    name: 'dataResponseFromAs',
     keyName: 'asResponseId',
     key: asResponseId,
     valueName: 'dataResponse',
@@ -654,7 +654,7 @@ export function setDataResponseFromAS(asResponseId, data) {
 export function removeDataResponseFromAS(asResponseId) {
   return db.remove({
     dbName,
-    name: 'dataResponseFromAS',
+    name: 'dataResponseFromAs',
     keyName: 'asResponseId',
     key: asResponseId,
   });
@@ -663,7 +663,7 @@ export function removeDataResponseFromAS(asResponseId) {
 export function getDatafromAS(requestId) {
   return db.getList({
     dbName,
-    name: 'dataFromAS',
+    name: 'dataFromAs',
     keyName: 'requestId',
     key: requestId,
     valueName: 'data',
@@ -673,7 +673,7 @@ export function getDatafromAS(requestId) {
 export function countDataFromAS(requestId) {
   return db.count({
     dbName,
-    name: 'dataFromAS',
+    name: 'dataFromAs',
     keyName: 'requestId',
     key: requestId,
   });
@@ -682,7 +682,7 @@ export function countDataFromAS(requestId) {
 export function addDataFromAS(requestId, data) {
   return db.pushToList({
     dbName,
-    name: 'dataFromAS',
+    name: 'dataFromAs',
     keyName: 'requestId',
     key: requestId,
     valueName: 'data',
@@ -693,7 +693,7 @@ export function addDataFromAS(requestId, data) {
 export function removeDataFromAS(requestId) {
   return db.removeList({
     dbName,
-    name: 'dataFromAS',
+    name: 'dataFromAs',
     keyName: 'requestId',
     key: requestId,
   });
@@ -702,7 +702,7 @@ export function removeDataFromAS(requestId) {
 export function removeAllDataFromAS() {
   return db.removeAllLists({
     dbName,
-    name: 'dataFromAS',
+    name: 'dataFromAs',
   });
 }
 
