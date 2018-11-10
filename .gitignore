@@ -1,6 +1,8 @@
 main-server/data
 main-server/log
 
+main-server/_event_log
+
 mq-server/log
 
 .env

@@ -40,6 +40,8 @@ import logger from '../../logger';
 
 import * as config from '../../config';
 
+import logEvent from '../../_event_logger';
+
 const challengeRequestProcessLocks = {};
 const idpResponseProcessLocks = {};
 const asDataResponseProcessLocks = {};
@@ -93,6 +95,13 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
       });
       delete challengeRequestProcessLocks[responseId];
     } else if (message.type === privateMessageType.IDP_RESPONSE) {
+      logEvent({
+        datetime: new Date(),
+        name: 'rp_received_idp_response',
+        requestId,
+        nodeId,
+      });
+
       const requestData = await cacheDb.getRequestData(
         nodeId,
         message.request_id
@@ -143,11 +152,26 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
         ]);
         if (tendermint.latestBlockHeight <= message.height) {
           delete idpResponseProcessLocks[responseId];
+
+          logEvent({
+            datetime: new Date(),
+            name: 'rp_wait_for_block_to_process_idp_response',
+            requestId,
+            nodeId,
+          });
+
           return;
         } else {
           await cacheDb.removePrivateProofReceivedFromMQ(nodeId, responseId);
         }
       }
+
+      logEvent({
+        datetime: new Date(),
+        name: 'process_idp_response_without_wait_for_block',
+        requestId,
+        nodeId,
+      });
 
       const requestDetail = await tendermintNdid.getRequestDetail({
         requestId: message.request_id,
@@ -187,12 +211,26 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
       await callbackToClient(callbackUrl, eventDataForCallback, true);
 
       if (isAllIdpRespondedAndValid({ requestStatus, responseValidList })) {
+        logEvent({
+          datetime: new Date(),
+          name: 'idp_responded_finished_at_min_idp',
+          requestId,
+          nodeId,
+        });
+
         const requestData = await cacheDb.getRequestData(
           nodeId,
           message.request_id
         );
         if (requestData != null) {
           await sendRequestToAS(nodeId, requestData, message.height);
+
+          logEvent({
+            datetime: new Date(),
+            name: 'rp_sent_request_to_as',
+            requestId,
+            nodeId,
+          });
         }
       }
 
@@ -208,6 +246,14 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
           message: 'Automatically closing request',
           requestId: message.request_id,
         });
+
+        logEvent({
+          datetime: new Date(),
+          name: 'closing_completed_request',
+          requestId,
+          nodeId,
+        });
+
         await common.closeRequest(
           { node_id: nodeId, request_id: message.request_id },
           {
@@ -216,9 +262,23 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
             saveForRetryOnChainDisabled: true,
           }
         );
+
+        logEvent({
+          datetime: new Date(),
+          name: 'closed_completed_request',
+          requestId,
+          nodeId,
+        });
       }
       delete idpResponseProcessLocks[responseId];
     } else if (message.type === privateMessageType.AS_DATA_RESPONSE) {
+      logEvent({
+        datetime: new Date(),
+        name: 'rp_received_as_data_response',
+        requestId,
+        nodeId,
+      });
+
       // Receive data from AS
       const asResponseId =
         nodeId +
@@ -245,9 +305,23 @@ export async function handleMessageFromQueue(message, nodeId = config.nodeId) {
         });
         if (tendermint.latestBlockHeight <= message.height) {
           delete asDataResponseProcessLocks[asResponseId];
+
+          logEvent({
+            datetime: new Date(),
+            name: 'rp_wait_for_block_to_process_as_data_response',
+            requestId,
+            nodeId,
+          });
+
           return;
         }
       }
+      logEvent({
+        datetime: new Date(),
+        name: 'rp_process_as_data_response_without_wait_for_block',
+        requestId,
+        nodeId,
+      });
       await processAsData({
         nodeId,
         requestId: message.request_id,
@@ -388,6 +462,8 @@ async function processRequestUpdate(nodeId, requestId, height) {
     height,
   });
 
+  const _time = new Date();
+
   const requestDetail = await tendermintNdid.getRequestDetail({
     requestId: requestId,
     height,
@@ -422,6 +498,13 @@ async function processRequestUpdate(nodeId, requestId, height) {
   let responseValidList;
 
   if (needResponseVerification) {
+    logEvent({
+      datetime: _time,
+      name: 'process_idp_response_after_wait_for_block',
+      requestId,
+      nodeId,
+    });
+
     // Validate ZK Proof and IAL
     const responseMetadataList = await cacheDb.getExpectedIdpResponseNodeIdInBlockList(
       nodeId,
@@ -467,10 +550,31 @@ async function processRequestUpdate(nodeId, requestId, height) {
   const callbackUrl = requestData.callback_url;
   await callbackToClient(callbackUrl, eventDataForCallback, true);
 
+  logEvent({
+    datetime: _time,
+    name: 'rp_sent_request_status_update_to_client',
+    requestId,
+    nodeId,
+  });
+
   if (isAllIdpRespondedAndValid({ requestStatus, responseValidList })) {
+    logEvent({
+      datetime: new Date(),
+      name: 'idp_responded_finished_at_min_idp',
+      requestId,
+      nodeId,
+    });
+
     const requestData = await cacheDb.getRequestData(nodeId, requestId);
     if (requestData != null) {
       await sendRequestToAS(nodeId, requestData, height);
+
+      logEvent({
+        datetime: new Date(),
+        name: 'rp_sent_request_to_as',
+        requestId,
+        nodeId,
+      });
     }
   }
 
@@ -485,6 +589,14 @@ async function processRequestUpdate(nodeId, requestId, height) {
       message: 'Automatically closing request',
       requestId,
     });
+
+    logEvent({
+      datetime: new Date(),
+      name: 'closing_completed_request',
+      requestId,
+      nodeId,
+    });
+
     await common.closeRequest(
       { node_id: nodeId, request_id: requestId },
       {
@@ -493,6 +605,22 @@ async function processRequestUpdate(nodeId, requestId, height) {
         saveForRetryOnChainDisabled: true,
       }
     );
+  }
+
+  if (requestStatus.closed) {
+    logEvent({
+      datetime: new Date(),
+      name: 'completed_request_closed',
+      requestId,
+      nodeId,
+    });
+  } else if (requestStatus.timed_out) {
+    logEvent({
+      datetime: new Date(),
+      name: 'request_timed_out',
+      requestId,
+      nodeId,
+    });
   }
 
   if (requestStatus.closed || requestStatus.timed_out) {
@@ -529,6 +657,14 @@ async function checkAsDataSignaturesAndSetReceived(nodeId, metadataList) {
         asResponseId
       );
       if (dataResponseFromAS == null) return; // Have not received data from AS through message queue yet
+
+      logEvent({
+        datetime: new Date(),
+        name: 'rp_process_as_data_after_wait_for_block',
+        requestId,
+        nodeId,
+      });
+
       await processAsData({
         nodeId,
         requestId,

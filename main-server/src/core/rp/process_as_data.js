@@ -30,6 +30,8 @@ import CustomError from 'ndid-error/custom_error';
 import errorType from 'ndid-error/type';
 import logger from '../../logger';
 
+import logEvent from '../../_event_logger';
+
 export async function processAsData({
   nodeId,
   requestId,
@@ -90,6 +92,13 @@ export async function processAsData({
     return;
   }
 
+  logEvent({
+    datetime: new Date(),
+    name: 'rp_setting_data_received',
+    requestId,
+    nodeId,
+  });
+
   try {
     await tendermintNdid.setDataReceived(
       {
@@ -148,6 +157,13 @@ export async function processAsDataAfterSetDataReceived(
     asResponseId,
   }
 ) {
+  logEvent({
+    datetime: new Date(),
+    name: 'rp_set_data_received',
+    requestId,
+    nodeId,
+  });
+
   try {
     if (error) throw error;
 

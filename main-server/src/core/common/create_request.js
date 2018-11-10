@@ -43,6 +43,8 @@ import logger from '../../logger';
 import * as config from '../../config';
 import { role } from '../../node';
 
+import logEvent from '../../_event_logger';
+
 async function checkIdpListCondition({
   namespace,
   identifier,
@@ -260,6 +262,8 @@ export async function createRequest(
   options = {},
   additionalParams = {}
 ) {
+  const _time = new Date();
+
   if (createRequestParams.idp_id_list == null) {
     createRequestParams.idp_id_list = [];
   }
@@ -331,6 +335,13 @@ export async function createRequest(
     if (request_id == null) {
       request_id = utils.createRequestId();
     }
+
+    logEvent({
+      datetime: _time,
+      name: 'create_request_start',
+      requestId: request_id,
+      nodeId: node_id,
+    });
 
     const challenge = {};
     const generatedChallenges = utils.generatedChallenges(receivers.length);
@@ -485,6 +496,13 @@ async function createRequestInternalAsync(
       purpose,
     };
 
+    logEvent({
+      datetime: new Date(),
+      name: 'create_request_before_tm_tx',
+      requestId: request_id,
+      nodeId: node_id,
+    });
+
     if (!synchronous) {
       await tendermintNdid.createRequest(
         requestDataToBlockchain,
@@ -597,6 +615,13 @@ export async function createRequestInternalAsyncAfterBlockchain(
     callbackAdditionalArgs,
   } = {}
 ) {
+  logEvent({
+    datetime: new Date(),
+    name: 'create_request_after_tm_tx',
+    requestId: request_id,
+    nodeId: node_id,
+  });
+
   try {
     if (error) throw error;
 
@@ -665,6 +690,13 @@ export async function createRequestInternalAsyncAfterBlockchain(
         }
       }
     }
+
+    logEvent({
+      datetime: new Date(),
+      name: 'create_request_result_sent',
+      requestId: request_id,
+      nodeId: node_id,
+    });
   } catch (error) {
     logger.error({
       message: 'Create request internal async after blockchain error',
